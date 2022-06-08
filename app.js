@@ -45,7 +45,7 @@ var DgFarmerDetails = [
     ["HSRTesting","8073796903","a84041f791837fa3","8618882667","8072615910"]]
 
 let DgDateObJ = new Date();
-var DgDayWiseLogfile = './LOGS_24Hr' + DgDateObJ.getFullYear() + "-"+ (DgDateObJ.getMonth()+1) + "-" + DgDateObJ.getDate() +'.txt'
+var DgDayWiseLogfile = 'C:/Users/This PC/Desktop/cultyavteIVR/Logs/LOGS_24Hr' + DgDateObJ.getFullYear() + "-"+ (DgDateObJ.getMonth()+1) + "-" + DgDateObJ.getDate() +'.txt'
 
 async function F2FFarmerGetData(){
 
