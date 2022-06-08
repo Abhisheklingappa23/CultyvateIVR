@@ -82,14 +82,6 @@ function F2FIVRApiCall(pLatestData, pPrevoiusData, pFarmerDetails){
             F2FWriteToLogFile("Condition trigger for IVR call Matched : "+" [" + pFarmerDetails[0]+" ,"+pFarmerDetails[1]+" ,"+pFarmerDetails[2]+","+pFarmerDetails[3]+" ,"+pFarmerDetails[4]+ "]" + " Soil_moisture_level3_current_value is : " + pLatestData +"%"+" Soil_moisture_level3_Previous_value is : " + pPrevoiusData +"%")
             //F2FWriteToLogFile(" Condition trigger for IVR call  to  :" +pFarmerDetails[0])
             console.log("IVR Call Triggered",pFarmerDetails[0]);
-
-
-
-            
-        }else if(pLatestData==0&&pPrevoiusData==0){
-            F2FWriteToLogFile(" current and previous values are same condtion : "+" [" + pFarmerDetails[0]+" ,"+pFarmerDetails[1]+" ,"+pFarmerDetails[2]+","+pFarmerDetails[3]+" ,"+pFarmerDetails[4]+ "]" + " Soil_moisture_level3_current_value is : " + pLatestData +"%"+" Soil_moisture_level3_Previous_value is : " + pPrevoiusData +"%")
-            console.log(" Donot trigger the call, current and previous values are same ")
-            
             sql.connect(config, function (err) {
                 if (err) console.log(err);                
                 var request = new sql.Request();
@@ -138,8 +130,57 @@ function F2FIVRApiCall(pLatestData, pPrevoiusData, pFarmerDetails){
                 });
                 
             });
-
-
+        }else if(pLatestData==0&&pPrevoiusData==0){
+            F2FWriteToLogFile(" current and previous values are same condtion : "+" [" + pFarmerDetails[0]+" ,"+pFarmerDetails[1]+" ,"+pFarmerDetails[2]+","+pFarmerDetails[3]+" ,"+pFarmerDetails[4]+ "]" + " Soil_moisture_level3_current_value is : " + pLatestData +"%"+" Soil_moisture_level3_Previous_value is : " + pPrevoiusData +"%")
+            console.log(" Donot trigger the call, current and previous values are same ")
+            sql.connect(config, function (err) {
+                if (err) console.log(err);                
+                var request = new sql.Request();
+                var lstring  = "select * from IVRCallTriggerLog where fType= 'FR' and DeviceID='" + pFarmerDetails[2] +"' and fDateTime='" + llatestdattime +"' "
+                console.log("OUR REF ",lstring)
+                request.query(lstring, function (err, recordset) {
+                    if (err) console.log(err)                
+                   var Pulled_record = (recordset.recordsets[0][0])
+                   console.log()
+                   if(typeof(Pulled_record)==="undefined"){
+                       console.log("no data you can insert")
+                       axios({
+                        method: 'post',
+                        url: 'https://cultyvate.asttecs.com/apiControl/triggerRequest.php',
+                        data: {
+                                "email":{
+                                "is_present": "Null",
+                                "sender_detail": "Null",
+                                "payload": "Null"
+                                },
+                                "text_message":{
+                                "is_present": "Null",
+                                "sender_detail": "Null",
+                                "payload": "Null"
+                                },
+                                "whatsapp_message":{
+                                "is_present": "Null",
+                                "sender_detail": "Null",
+                                "payload": "Null"
+                                },
+                                "voice_call":{
+                                "is_present": "1",
+                                "sender_detail": "91"+pFarmerDetails[1],
+                                "payload": "02112100"
+                                }
+                            }
+                      })
+                       var Insertrequest = new sql.Request();
+                       Insertrequest.query("INSERT INTO IVRCallTriggerLog (FarmerName, FarmerMobileNumber, fType,fDateTime, DeviceID, FiledOfficerNumber, FiledManagerNumber, VoiceCallYN, IVRPostURLSent, IVRPostSentDateTime, IVRPostResponce, CreatDate) VALUES ('" +  pFarmerDetails[0] + "', '" +  pFarmerDetails[1] + "','FR','" + llatestdattime +"','" +  pFarmerDetails[2] + "', '" +  pFarmerDetails[3] + "','" +  pFarmerDetails[4] + "', 1,'YES DATA sent','" + llatestdattime +"','Success 200 OK','" + llatestdattime +"')", function (err, recordset) {
+                         if (err) console.log(err)
+                       });
+                   }else{
+                        console.log("Data Already inserted do nothing")
+                   }
+                          
+                });
+                
+            });
         }else if(pLatestData>1&&pPrevoiusData<10){
             F2FWriteToLogFile(" Irrigation started condtion : "+" [" + pFarmerDetails[0]+" ,"+pFarmerDetails[1]+" ,"+pFarmerDetails[2]+","+pFarmerDetails[3]+" ,"+pFarmerDetails[4]+ "]" + " Soil_moisture_level3_current_value is : " + pLatestData +"%"+" Soil_moisture_level3_Previous_value is : " + pPrevoiusData +"%")
             console.log(" Dnot trigger the call Farmer already started Irrigation ")
