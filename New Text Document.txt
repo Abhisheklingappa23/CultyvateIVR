@@ -1,0 +1,165 @@
+const express = require('express');
+const MongoClient = require('mongodb').MongoClient
+const app = express()
+const bodyParser = require('body-parser')
+const dbc = require('./config/db')
+var fs = require('fs');
+var DgDbConnection;
+const axios = require("axios");
+// var database;
+
+require('dotenv').config()
+app.use(express.json())
+app.use(bodyParser.json());
+process.env.TZ = "Asia/Calcutta"
+var DgFarmerDetails = [["Mahesh TK","9500781420","a840415df182e00b","8618882667","8072615910"],
+                       ["Mahesh TK","9500781420","a84041fcb182e00c","8618882667","8072615910"],
+                       ["Mahesh TK","9500781420","a8404167a182e00d","8618882667","8072615910"],
+                       ["Mahesh TK","9500781420","a84041454182e00e","8618882667","8072615910"],
+                       ["Mahesh TK","9500781420","a84041e46182e00f","8618882667","8072615910"],
+                       ["Kailas Moore","9500781420","a84041eb1182e043","8618882667","8072615910"],
+                       ["Kailas Moore","9500781420","a84041ee3182e044","8618882667","8072615910"],
+                       ["Kailas Moore","9500781420","84041d9e182e045","8618882667","8072615910"],
+                       ["Kailas Moore","9500781420","a840415a41837a81","8618882667","8072615910"],
+                       ["Sahyadri","9422178986","a84041fe8182dfd3","8618882667","8072615910"],
+                       ["Sahyadri","9422178986","a84041fcf182dff0","8618882667","8072615910"],
+                       ["Sahyadri","9422178986","a840412fc182e01d","8618882667","8072615910"],
+                       ["Sahyadri","9422178986","a84041f83182e022","8618882667","8072615910"],
+                       ["Sahyadri","9422178986","a8404135e182e035","8618882667","8072615910"],
+                       ["Sahyadri","9422178986","a840414a7182e034","8618882667","8072615910"],
+                       ["Sahyadri","9422178986","a84041f93182e042","8618882667","8072615910"]]
+
+let Dg_Date_ObJ = new Date();
+
+var Dg_Day_Wise_Logfile = './LOGS_24 ' + Dg_Date_ObJ.getFullYear() + "-"+ (Dg_Date_ObJ.getMonth()+1) + "-" + Dg_Date_ObJ.getDate() +'.txt'
+
+let Dg_Current_Date_Time = Dg_Date_ObJ.getFullYear() + "-"+ (Dg_Date_ObJ.getMonth() + 1) + "-" + Dg_Date_ObJ.getDate() + " " + Dg_Date_ObJ.getHours() + ":" + Dg_Date_ObJ.getMinutes() + ":" +Dg_Date_ObJ.getSeconds()
+console.log(Dg_Current_Date_Time)
+let Dl_File_Data;
+
+function Mydata(){
+    let l_Date_ObJ = new Date();
+    var l_Current_Date_Time;
+
+    l_Current_Date_Time = l_Date_ObJ.getFullYear() + "-"+ (l_Date_ObJ.getMonth() + 1) + "-" + l_Date_ObJ.getDate() + " " + l_Date_ObJ.getHours() + ":" + l_Date_ObJ.getMinutes() + ":" + l_Date_ObJ.getSeconds()
+
+    var l_previous_day = l_Date_ObJ.getFullYear() + "-"+ (l_Date_ObJ.getMonth() + 1) + "-" + (l_Date_ObJ.getDate()-1) + " " + l_Date_ObJ.getHours() + ":" + l_Date_ObJ.getMinutes() + ":" + l_Date_ObJ.getSeconds()
+
+    fs.appendFileSync(Dg_Day_Wise_Logfile, "\n"+ l_Current_Date_Time + " Listner Programer for Soilmoisture Started \n",  'utf8');
+    var Dg_Mysort = {_id:-1};
+
+    for (let i=0;i<DgFarmerDetails.length;i++ ){
+
+        DgDbConnection.collection(dbc.collection_name).find({"devId":DgFarmerDetails[i][2],"createdAt": { "$gte": new Date(l_previous_day)}}).sort(Dg_Mysort).limit(2).toArray((err, result1)=>{
+            
+            if(err)throw err
+            const b = result1
+            const Json_Op1 = {
+            Decoded_payload:b[0].raw.v3_raw.uplink_message.decoded_payload
+            }
+            const Json_Op2 = {
+                Decoded_payload:b[1].raw.v3_raw.uplink_message.decoded_payload
+            }
+            var Level3_Soil_data_current = parseInt(((Json_Op1.Decoded_payload.level3/4095)*100).toFixed(0))
+            var Level3_Soil_data_previous = parseInt(((Json_Op2.Decoded_payload.level3/4095)*100).toFixed(0))
+            
+            Dl_File_Data =l_Current_Date_Time + ": " + "[" + DgFarmerDetails[i][0]+" ,"+DgFarmerDetails[i][1]+" ,"+DgFarmerDetails[i][2]+","+DgFarmerDetails[i][3]+" ,"+DgFarmerDetails[i][4]+ "]" + " Soil_moisture_level3_current_value : " + Level3_Soil_data_current +" Soil_moisture_level3_previous_value : "+Level3_Soil_data_previous+"\n"
+            fs.appendFileSync(Dg_Day_Wise_Logfile,Dl_File_Data, 'utf8');
+
+            if(Level3_Soil_data_current==0&&Level3_Soil_data_previous>0){
+                
+                Dl_File_Data =l_Current_Date_Time + ": " + "[" + DgFarmerDetails[i][0]+" ,"+DgFarmerDetails[i][1]+" ,"+DgFarmerDetails[i][2]+","+DgFarmerDetails[i][3]+" ,"+DgFarmerDetails[i][4]+ "]" +" IVR Calling Condtion Data "+ " Soil_moisture_level3_current_value : " + Level3_Soil_data_current +" Soil_moisture_level3_previous_value : "+Level3_Soil_data_previous+"\n"
+                fs.appendFileSync(Dg_Day_Wise_Logfile,Dl_File_Data, 'utf8');
+                console.log(DgFarmerDetails[i][2]+"  "+Level3_Soil_data_current+"    "+Level3_Soil_data_previous)
+                console.log("ALERT and API call")
+                //api calling
+                // axios({
+                //     method: 'post',
+                //     url: 'https://cultyvate.asttecs.com/apiControl/triggerRequest.php',
+                //     data: {
+                //         "email":{
+                //         "is_present": "Null",
+                //         "sender_detail": "Null",
+                //         "payload": "Null"
+                //         },
+                //         "text_message":{
+                //         "is_present": "Null",
+                //         "sender_detail": "Null",
+                //         "payload": "Null"
+                //         },
+                //         "whatsapp_message":{
+                //         "is_present": "1",
+                //         "sender_detail": "919448999808",
+                //         "payload": "StartIrragation"
+                //         },
+                //         "voice_call":{
+                //         "is_present": "1",
+                //         "sender_detail": "918073796903",
+                //         "payload": "02111100"
+                //         }
+                //     }
+                //   });
+            }else if(Level3_Soil_data_current==0&&Level3_Soil_data_previous==0){
+                Dl_File_Data =l_Current_Date_Time + ": " + "[" + DgFarmerDetails[i][0]+" ,"+DgFarmerDetails[i][1]+" ,"+DgFarmerDetails[i][2]+","+DgFarmerDetails[i][3]+" ,"+DgFarmerDetails[i][4]+ "]" +" Condtion - Current Record and previous record are same "+ " Soil_moisture_level3_current_value : " + Level3_Soil_data_current +" Soil_moisture_level3_previous_value : "+Level3_Soil_data_previous+"\n"
+                fs.appendFileSync(Dg_Day_Wise_Logfile,Dl_File_Data, 'utf8');
+                console.log(DgFarmerDetails[i][2]+"  "+Level3_Soil_data_current+"    "+Level3_Soil_data_previous)
+                console.log("Donot trigger the call or msg current and previous values are same")
+                // axios({
+                //     method: 'post',
+                //     url: 'https://cultyvate.asttecs.com/apiControl/triggerRequest.php',
+                //     data: {
+                //         "email":{
+                //         "is_present": "Null",
+                //         "sender_detail": "Null",
+                //         "payload": "Null"
+                //         },
+                //         "text_message":{
+                //         "is_present": "Null",
+                //         "sender_detail": "Null",
+                //         "payload": "Null"
+                //         },
+                //         "whatsapp_message":{
+                //         "is_present": "1",
+                //         "sender_detail": "919448999808",
+                //         "payload": "StartIrragation"
+                //         },
+                //         "voice_call":{
+                //         "is_present": "1",
+                //         "sender_detail": "918073796903",
+                //         "payload": "StartIrragation"
+                //         }
+                //     }
+                //   });
+                console.log("Farmerdetails: ",DgFarmerDetails[i][0],DgFarmerDetails[i][2])
+
+            }else if(Level3_Soil_data_current>1&&Level3_Soil_data_previous==0){
+                Dl_File_Data =l_Current_Date_Time + ": " + "[" + DgFarmerDetails[i][0]+" ,"+DgFarmerDetails[i][1]+" ,"+DgFarmerDetails[i][2]+","+DgFarmerDetails[i][3]+" ,"+DgFarmerDetails[i][4]+ "]" +" Condtion - Current Record is greater than 1 and previous record is 0  "+ " Soil_moisture_level3_current_value : " + Level3_Soil_data_current +" Soil_moisture_level3_previous_value : "+Level3_Soil_data_previous+"\n"
+                fs.appendFileSync(Dg_Day_Wise_Logfile,Dl_File_Data, 'utf8');
+                console.log("Dnot trigger the call or msg Farmer already started Irrigation")
+                console.log("hiiii",DgFarmerDetails[i][2],DgFarmerDetails[i][3])
+            }                            
+        })
+    }
+    
+}
+
+setInterval(() => {
+    Mydata() 
+},15000); 
+
+app.listen(8085,()=>{
+    MongoClient.connect(dbc.db_connection,{useNewUrlParser:true},(error,result)=>{
+        if(error)throw error
+        if(error){
+            fs.appendFileSync(Dg_Day_Wise_Logfile, error, 'utf8');
+        }
+        else
+        {
+            var file_data = "\n"+Dg_Current_Date_Time +" Mongodb Connection Opened Successfully..."
+            fs.appendFileSync(Dg_Day_Wise_Logfile, file_data, 'utf8');
+        }
+        DgDbConnection = result.db(dbc.db_name)
+  
+    })
+    
+})
